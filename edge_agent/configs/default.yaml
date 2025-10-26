@@ -1,0 +1,24 @@
+# edge_agent/configs/default.yaml
+source:
+  video: "webcam0"                              # 또는 비디오 파일 경로
+  audio: "edge_agent/examples/sample_audio.wav" # 데모용 WAV
+  ppg:   "edge_agent/examples/sample_ppg.csv"   # 데모용 CSV
+
+thresholds:
+  inactivity_sec: 10
+  resp_brpm_low: 0      # 데모 스팸 방지용 완화
+  resp_brpm_high: 100   # 데모 스팸 방지용 완화
+  hr_bpm_low: 45
+  hr_bpm_high: 120
+
+alerts:
+  mode: "none"          # none|ble|sms
+  sms_gateway: null
+  ble_address: null
+
+storage:
+  sqlite_path: "edge_agent/rva_events.db"
+
+privacy:
+  store_raw_frames: false
+  store_features_only: true
