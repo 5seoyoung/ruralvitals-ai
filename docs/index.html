@@ -1,39 +1,51 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <title>RuralVitals AI – Demo Hub</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RuralVitals — 충북 농촌형 엣지 돌봄 대시보드</title>
   <style>
-    body {font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin:0; padding:2rem; line-height:1.6;}
-    .wrap {max-width: 860px; margin: 0 auto;}
-    .btn {display:inline-block; padding:12px 18px; margin:8px 8px 0 0; border:1px solid #222; border-radius:8px; text-decoration:none; color:#111;}
-    h1{margin:0 0 4px;} p{margin:6px 0;}
-    .card{border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:18px 0;}
+    :root{--bg:#0f172a;--card:#111827;--muted:#94a3b8;--brand:#4f46e5;}
+    body{margin:0;background:linear-gradient(135deg,#0f172a,#1f2937);font-family:ui-sans-serif,system-ui,AppleSDGothicNeo,Segoe UI,Roboto;}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px;}
+    .hero{color:white;margin-bottom:18px}
+    .hero h1{font-size:32px;margin:0 0 6px 0}
+    .hero p{color:#cbd5e1;margin:0}
+    .panel{background:#0b1220cc;border:1px solid #263041;border-radius:16px;padding:14px 16px;margin:12px 0;color:#dbeafe}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+    .badge{display:inline-block;background:#1f2937;border:1px solid #334155;color:#cbd5e1;border-radius:999px;padding:6px 12px;margin-right:8px}
+    iframe{width:100%;height:78vh;border:0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .note{color:#94a3b8;font-size:12px;margin-top:8px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr} iframe{height:78vh}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>RuralVitals AI</h1>
-    <p>비착용형 · 오프라인-first Edge AI로 농촌 고령자의 이상 징후를 실시간 탐지·알림합니다.</p>
-
-    <div class="card">
-      <strong>바로가기</strong><br>
-      <a class="btn" href="https://huggingface.co/spaces/<org>/ruralvitals-ai" target="_blank">🚀 데모(Primary)</a>
-      <a class="btn" href="https://ruralvitals.streamlit.app" target="_blank">🧷 백업 데모</a>
-      <a class="btn" href="https://github.com/<org>/<repo>" target="_blank">📦 GitHub Repo</a>
-      <a class="btn" href="./demo.mp4" target="_blank">🎥 시연 영상</a>
-      <a class="btn" href="./privacy.html" target="_blank">🔐 개인정보 안내</a>
+    <div class="hero">
+      <h1>RuralVitals — 충북 농촌형 엣지 돌봄</h1>
+      <p>비착용·오프라인 추론·다인 커버리지 | Jetson 엣지 단말에서 실시간 감지 → 복지사·가족 알림</p>
     </div>
 
-    <div class="card">
-      <strong>로컬 실행 요약</strong>
-      <pre><code>pip install -r requirements.txt
-streamlit run app/app.py
+    <div class="grid">
+      <div class="panel"><strong>라이브 대시보드</strong><br/>
+        충청북도 시·군 필터, 대상자 카드, 이벤트 타임라인, 임계치 설정 UI 제공
+      </div>
+      <div class="panel"><strong>Edge AI</strong><br/>
+        카메라·PPG·마이크 → 로컬 추론(CNN/LSTM + 규칙 하이브리드) → BLE/문자 알림
+      </div>
+      <div class="panel"><strong>오프라인 안정성</strong><br/>
+        네트워크 끊겨도 로컬 DB 버퍼링·재전송, 저지연 알림, 개인정보 최소 저장
+      </div>
+    </div>
 
-pip install -r requirements-edge.txt
-python edge_agent/main.py
-</code></pre>
+    <!-- 여기에 본인 Streamlit Cloud 주소 넣기 -->
+    <div class="panel" style="padding:0;">
+      <iframe src="https://YOUR-STREAMLIT-APP.streamlit.app/?embed=true"></iframe>
+    </div>
+    <div class="note">문제가 있으면 브라우저 새로고침(F5) 또는 팝업/서드파티 쿠키 허용을 확인하세요.</div>
+
+    <div class="panel">
+      <strong>GitHub</strong> · <a href="https://github.com/YOUR-ID/ruralvitals-ai" style="color:#93c5fd;">소스 코드 레포지토리</a>
     </div>
   </div>
 </body>
