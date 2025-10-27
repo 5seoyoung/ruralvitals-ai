@@ -1,119 +1,316 @@
-# app/app.py
+import os
 import sqlite3
-from pathlib import Path
 from datetime import datetime
+from typing import List
 
 import pandas as pd
 import streamlit as st
-import plotly.express as px
-import yaml
+import altair as alt
 
-ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "edge_agent" / "rva_events.db"
-CFG_PATH = ROOT / "edge_agent" / "configs" / "default.yaml"
+DB_PATH = "edge_agent/rva_events.db"
+REG_PATH = "data/resident_registry.csv"
 
-st.set_page_config(page_title="RuralVitals Edge Dashboard", page_icon="🩺", layout="wide")
-st.sidebar.title("app")
-st.sidebar.markdown("- 🧾 Events and Logs")
+st.set_page_config(
+    page_title="RuralVitals — 충북 농촌형 엣지 돌봄 대시보드",
+    page_icon="🌾",
+    layout="wide",
+)
 
-st.title("RuralVitals Edge Dashboard")
-st.markdown("### 실시간 엣지 디바이스 이벤트 로그")
+# -----------------------------
+# Regions
+# -----------------------------
+CHUNGBUK_REGIONS: List[str] = [
+    "전체",
+    # 시(3)
+    "제천시", "청주시", "충주시",
+    # 군(8)
+    "괴산군", "단양군", "보은군", "영동군", "옥천군", "음성군", "증평군", "진천군",
+]
 
-def read_df() -> pd.DataFrame:
-    if not DB_PATH.exists():
-        return pd.DataFrame(columns=["ts", "kind", "level", "note"])
-    con = sqlite3.connect(DB_PATH)
+# -----------------------------
+# Helpers
+# -----------------------------
+@st.cache_data(ttl=5)
+def load_events(db_path: str) -> pd.DataFrame:
+    con = sqlite3.connect(db_path)
     try:
-        df = pd.read_sql_query("SELECT ts, kind, level, note FROM events ORDER BY ts DESC", con)
+        # 현재 테이블 컬럼 확인
+        cols = {row[1] for row in con.execute("PRAGMA table_info(events)")}
+        # 필수 컬럼 구성 (없으면 즉석 기본값으로 alias)
+        sel = ["ts", "kind", "level", "note"]
+        if "resident_id" in cols:
+            sel.append("resident_id")
+        else:
+            sel.append("'UNSET' AS resident_id")
+        if "edge_id" in cols:
+            sel.append("edge_id")
+        else:
+            sel.append("'edge-1' AS edge_id")
+
+        sql = f"SELECT {', '.join(sel)} FROM events ORDER BY ts DESC"
+        df = pd.read_sql(sql, con)
+        df["ts"] = pd.to_datetime(df["ts"])
+        return df
     finally:
         con.close()
+    df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
+    for col in ["resident_id", "edge_id", "kind", "level", "note"]:
+        if col not in df.columns:
+            df[col] = None
     return df
 
-def insert_event(kind: str, level: str, note: str) -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(DB_PATH)
-    try:
-        con.execute("CREATE TABLE IF NOT EXISTS events(ts TEXT, kind TEXT, level TEXT, note TEXT)")
-        con.execute(
-            "INSERT INTO events(ts, kind, level, note) VALUES(?,?,?,?)",
-            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), kind, level, note),
-        )
-        con.commit()
-    finally:
-        con.close()
-
-# ---- 데모(시뮬레이터) 버튼 ----
-with st.expander("🔧 데모(시뮬레이터)"):
-    c1, c2, c3 = st.columns(3)
-    if c1.button("호흡이상(ALERT) 추가"):
-        insert_event("RESP", "ALERT", "br=6.0 rpm out of range")
-        st.success("RESP ALERT 1건 기록됨"); st.rerun()
-    if c2.button("심박이상(ALERT) 추가"):
-        insert_event("HR", "ALERT", "hr=140 bpm out of range")
-        st.success("HR ALERT 1건 기록됨"); st.rerun()
-    if c3.button("무동작(INACTIVITY) 추가"):
-        insert_event("INACTIVITY", "ALERT", "no motion ≥10s")
-        st.success("INACTIVITY ALERT 1건 기록됨"); st.rerun()
-
-df = read_df()
-if df.empty:
-    st.warning("아직 이벤트 데이터가 없습니다. 터미널에서 `python -m edge_agent.main`으로 엣지 에이전트를 먼저 실행하세요.")
-else:
-    # KPI
-    col1, col2, col3 = st.columns(3)
-    col1.metric("총 이벤트 수", len(df))
-    col2.metric("경보(ALERT) 수", int((df["level"] == "ALERT").sum()))
-    col3.metric("최근 이벤트", df.iloc[0]["ts"])
-
-    # 표
-    st.dataframe(df, use_container_width=True)
-
-    # 타임라인 그래프
-    st.markdown("### Event Timeline")
-    df_plot = df.copy()
-    df_plot["ts"] = pd.to_datetime(df_plot["ts"])
-    fig = px.scatter(
-        df_plot.sort_values("ts"),
-        x="ts", y="kind",
-        color="level", symbol="kind",
-        hover_data=["note"], template="plotly_white",
-        title="Event Timeline (kind/level over time)"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# ---- 임계치 편집 ----
-st.markdown("---")
-with st.expander("⚙️ 임계치(Thresholds) 설정"):
-    if not CFG_PATH.exists():
-        st.error(f"설정 파일을 찾을 수 없습니다: {CFG_PATH}")
+def ensure_registry_template(events: pd.DataFrame) -> pd.DataFrame:
+    """등록 파일이 없으면 이벤트의 resident_id로 템플릿 생성."""
+    os.makedirs(os.path.dirname(REG_PATH), exist_ok=True)
+    if os.path.exists(REG_PATH):
+        reg = pd.read_csv(REG_PATH, dtype=str).fillna("미지정")
     else:
-        cfg = yaml.safe_load(open(CFG_PATH, "r", encoding="utf-8")) or {}
-        t = cfg.get("thresholds", {})
-        c1, c2, c3, c4, c5 = st.columns(5)
-        inactivity = c1.number_input("inactivity_sec", 3, 120, int(t.get("inactivity_sec", 10)))
-        br_low     = c2.number_input("resp_brpm_low", 0, 60, int(t.get("resp_brpm_low", 0)))
-        br_high    = c3.number_input("resp_brpm_high", 10, 120, int(t.get("resp_brpm_high", 100)))
-        hr_low     = c4.number_input("hr_bpm_low", 30, 100, int(t.get("hr_bpm_low", 45)))
-        hr_high    = c5.number_input("hr_bpm_high", 80, 200, int(t.get("hr_bpm_high", 120)))
-        if st.button("설정 저장"):
-            cfg["thresholds"] = {
-                "inactivity_sec": int(inactivity),
-                "resp_brpm_low": int(br_low),
-                "resp_brpm_high": int(br_high),
-                "hr_bpm_low": int(hr_low),
-                "hr_bpm_high": int(hr_high),
-            }
-            with open(CFG_PATH, "w", encoding="utf-8") as f:
-                yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
-            st.success("저장되었습니다. 엣지 에이전트 재시작 시 적용됩니다.")
+        ids = sorted(set(events["resident_id"].dropna())) or ["CB-001", "CB-002"]
+        reg = pd.DataFrame({
+            "resident_id": ids,
+            "name": [f"어르신{str(i+1).zfill(2)}" for i in range(len(ids))],
+            "county": ["미지정"] * len(ids),
+        })
+        reg.to_csv(REG_PATH, index=False, encoding="utf-8-sig")
+    # 보정
+    for col in ["resident_id", "name", "county"]:
+        if col not in reg.columns:
+            reg[col] = "미지정"
+    return reg
 
-# ---- CSV 다운로드 ----
-if not df.empty:
-    st.download_button(
-        "⬇️ 이벤트 로그 CSV 다운로드",
-        df.to_csv(index=False).encode("utf-8"),
-        "ruralvitals_events.csv",
-        "text/csv"
+def insert_event(ts: datetime, kind: str, level: str, note: str, resident_id: str | None, edge_id: str | None):
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        """
+        create table if not exists events(
+            ts text,
+            kind text,
+            level text,
+            note text,
+            resident_id text,
+            edge_id text
+        )
+        """
     )
+    cur.execute(
+        "insert into events(ts,kind,level,note,resident_id,edge_id) values(?,?,?,?,?,?)",
+        (ts.strftime("%Y-%m-%d %H:%M:%S"), kind, level, note, resident_id, edge_id),
+    )
+    con.commit()
+    con.close()
 
-st.caption("RuralVitals Edge AI Monitoring System © 2025 MediX / Seoyoung Oh")
+def heat_color(n: int) -> str:
+    if n >= 10:   # 고위험
+        return "#ffe5e5"
+    if n >= 5:    # 주의
+        return "#fff5e6"
+    return "#eef9f0"  # 양호
+
+def classify_status(last_row: pd.Series | None) -> str:
+    """
+    최근 이벤트 기준 간단 상태 분류:
+      - RESP/HR ALERT -> critical
+      - INACTIVITY ALERT -> warning
+      - 그 외 -> normal
+    """
+    if last_row is None or pd.isna(last_row.get("kind")):
+        return "normal"
+    if last_row.get("level") == "ALERT":
+        k = (last_row.get("kind") or "").upper()
+        if k in ("RESP", "HR"):
+            return "critical"
+        if k in ("INACTIVITY",):
+            return "warning"
+    return "normal"
+
+# -----------------------------
+# LOAD
+# -----------------------------
+events = load_events(DB_PATH)
+reg = ensure_registry_template(events)
+
+now = pd.Timestamp.now()
+cut_24h = now - pd.Timedelta(hours=24)
+online_cut = now - pd.Timedelta(seconds=90)
+
+hb = events[events["note"] == "edge alive"].copy()
+hb = hb.sort_values(["resident_id", "ts"], ascending=[True, False])
+online_ids = set(hb.groupby("resident_id").head(1).loc[lambda d: d["ts"] >= online_cut, "resident_id"])
+
+# 지역 필터 UI (React 컨셉과 동일한 경험)
+st.title("RuralVitals — 충북 농촌형 엣지 돌봄 대시보드")
+st.caption("비착용 · 오프라인 추론 · 저비용 다인 커버리지")
+
+region = st.segmented_control("📍 지역 선택", options=CHUNGBUK_REGIONS, default="전체")
+reg_view = reg.copy()
+if region != "전체":
+    reg_view = reg_view[reg_view["county"] == region]
+
+# KPI
+total_alerts = int((events["level"] == "ALERT").sum())
+last_ts = events["ts"].max() if not events.empty else None
+
+colA, colB, colC = st.columns(3)
+colA.metric("모니터링 대상자 수", len(reg_view))
+colB.metric("총 ALERT(전체)", total_alerts)
+colC.metric("최근 이벤트 시각", last_ts.strftime("%Y-%m-%d %H:%M:%S") if pd.notna(last_ts) else "-")
+
+# -----------------------------
+# 대상자 현황(카드형) — 지역 필터 반영
+# -----------------------------
+st.subheader("대상자 현황(다인)")
+if len(reg_view) == 0:
+    st.info("해당 지역에 등록된 대상자가 없습니다. (data/resident_registry.csv에서 county를 설정하세요)")
+else:
+    # 대상자별 최신 이벤트 머지
+    latest = (
+        events.sort_values("ts", ascending=False)
+        .drop_duplicates(subset=["resident_id"], keep="first")
+        .rename(columns={"ts": "last_ts"})
+    )
+    merged = reg_view.merge(latest[["resident_id", "kind", "level", "note", "last_ts"]], on="resident_id", how="left")
+
+    # 간단 KPI 계산(필터된 집합 기준)
+    statuses = merged.apply(lambda r: classify_status(r), axis=1)
+    critical_cnt = int((statuses == "critical").sum())
+    warning_cnt = int((statuses == "warning").sum())
+    normal_cnt = int((statuses == "normal").sum())
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("긴급 알림(critical)", critical_cnt)
+    k2.metric("주의 필요(warning)", warning_cnt)
+    k3.metric("정상(normal)", normal_cnt)
+    k4.metric("필터 적용 대상자", len(merged))
+
+    # 카드 그리드
+    ncols = 2 if st.session_state.get("wide_cards", True) else 1
+    for i, row in merged.reset_index(drop=True).iterrows():
+        if i % ncols == 0:
+            cols = st.columns(ncols)
+        idx = i % ncols
+        status = classify_status(row)
+        dot = {"critical": "🔴", "warning": "🟡", "normal": "🟢"}.get(status, "⚪️")
+        badge = f"<span style='background:#e9f0ff;color:#315efb;padding:2px 8px;border-radius:999px;font-size:12px'>{row['county']}</span>"
+
+        with cols[idx]:
+            st.markdown(
+                f"""
+                <div style="
+                    border:2px solid {'#ffb3b3' if status=='critical' else ('#ffe199' if status=='warning' else '#cde8cf')};
+                    background:{'#fff7f7' if status=='critical' else ('#fffaf0' if status=='warning' else '#f5fff7')};
+                    padding:14px;border-radius:14px;margin-bottom:10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:700;font-size:16px">{dot} {row.get('name','어르신')} <span style="color:#999">({row['resident_id']})</span></div>
+                    <div>{badge}</div>
+                  </div>
+                  <div style="color:#666;margin-top:6px">
+                    최근: {row['last_ts'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(row.get('last_ts')) else '-'} /
+                    {str(row.get('kind') or '-')} {str(row.get('level') or '')}
+                  </div>
+                  <div style="color:#444;margin-top:4px">{str(row.get('note') or '')}</div>
+                  <div style="margin-top:6px;font-size:12px;color:{'#b30000' if status=='critical' else ('#8a6a00' if status=='warning' else '#2d6a30')}">
+                    상태: <b>{'위험' if status=='critical' else ('주의' if status=='warning' else '정상')}</b>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+# -----------------------------
+# 충북 시·군 현황 카드 (최근 24h) — 전체 관점
+# -----------------------------
+st.subheader("충청북도 시·군 현황(최근 24시간)")
+merge = events.merge(reg, on="resident_id", how="left")
+merge["county"] = merge["county"].fillna("미지정")
+recent = merge[merge["ts"] >= cut_24h]
+agg = recent.groupby("county").agg(
+    alerts=("level", lambda s: int((s == "ALERT").sum())),
+    residents=("resident_id", "nunique"),
+    latest=("ts", "max"),
+).reset_index()
+
+if agg.empty:
+    st.info("최근 24시간 데이터가 없습니다. (아래 데모 이벤트 주입으로 테스트하세요)")
+else:
+    counties = list(agg.sort_values("alerts", ascending=False)["county"])
+    ncols = 4
+    rows = (len(counties) + ncols - 1) // ncols
+    for r in range(rows):
+        cols = st.columns(ncols)
+        for c in range(ncols):
+            idx = r * ncols + c
+            if idx >= len(counties):
+                continue
+            name = counties[idx]
+            row = agg[agg["county"] == name].iloc[0]
+            with cols[c]:
+                bg = heat_color(row["alerts"])
+                st.markdown(
+                    f"""
+                    <div style="background:{bg};padding:14px;border-radius:16px;border:1px solid #e6e6e6">
+                      <div style="font-weight:700;font-size:18px">{name}</div>
+                      <div style="margin-top:6px">최근24h ALERT: <b>{row['alerts']}</b></div>
+                      <div>모니터링 대상자: {row['residents']}명</div>
+                      <div style="color:#666">최근: {row['latest'].strftime('%m-%d %H:%M') if pd.notna(row['latest']) else '-'}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+# -----------------------------
+# 통합 알림 피드
+# -----------------------------
+st.subheader("통합 알림 피드")
+feed_cols = ["ts", "resident_id", "kind", "level", "note"]
+feed = events.loc[:, [c for c in feed_cols if c in events.columns]].copy()
+if region != "전체":
+    feed = feed.merge(reg_view[["resident_id"]], on="resident_id", how="inner")
+st.dataframe(feed.head(20), use_container_width=True, hide_index=True)
+
+# -----------------------------
+# Event Timeline
+# -----------------------------
+st.caption("Event Timeline (kind/level over time)")
+if not events.empty:
+    ev = events.copy()
+    if region != "전체":
+        ev = ev.merge(reg_view[["resident_id"]], on="resident_id", how="inner")
+    ev["level_kind"] = ev["level"].fillna("") + ", " + ev["kind"].fillna("")
+    ch = alt.Chart(ev.tail(800)).mark_point().encode(
+        x=alt.X("ts:T", title="ts"),
+        y=alt.Y("kind:N"),
+        color=alt.Color("level_kind:N", legend=alt.Legend(title="level,kind")),
+        tooltip=["ts", "resident_id", "level", "kind", "note"],
+    ).properties(height=220, width="container")
+    st.altair_chart(ch, use_container_width=True)
+else:
+    st.info("표시할 이벤트가 없습니다.")
+
+# -----------------------------
+# 데모(이벤트 주입) — 버튼 고침은 st.rerun
+# -----------------------------
+with st.expander("🧪 데모(이벤트 주입)"):
+    rid = st.selectbox("대상자 선택", reg["resident_id"].tolist() or ["CB-001"])
+    edge_id = st.text_input("엣지 디바이스 ID", value="edge-01")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("호흡이상(ALERT) 추가"):
+            insert_event(datetime.now(), "RESP", "ALERT", "br≈0 rpm out of range", rid, edge_id)
+            st.toast("호흡이상(ALERT) 등록", icon="✅")
+            st.rerun()
+    with c2:
+        if st.button("심박이상(ALERT) 추가"):
+            insert_event(datetime.now(), "HR", "ALERT", "hr≈140 bpm out of range", rid, edge_id)
+            st.toast("심박이상(ALERT) 등록", icon="✅")
+            st.rerun()
+    with c3:
+        if st.button("무움직임(INACTIVITY) 추가"):
+            insert_event(datetime.now(), "INACTIVITY", "ALERT", "no motion ≥10s", rid, edge_id)
+            st.toast("무움직임(INACTIVITY) 등록", icon="✅")
+            st.rerun()
+
+st.markdown("<hr/>", unsafe_allow_html=True)
+st.caption("RuralVitals Edge AI Monitoring System © 2025 Medix / Seoyoung Oh")
