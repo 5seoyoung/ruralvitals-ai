@@ -2,61 +2,76 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RuralVitals — 충북 농촌형 엣지 돌봄</title>
-  <meta name="description" content="비착용 · 오프라인 추론 · 다인 커버리지 | Jetson 엣지 단말에서 실시간 감지 → 복지사/가족 알림" />
+
+  <!-- OG/Twitter 카드 (공유 미리보기) -->
+  <meta property="og:title" content="RuralVitals — 충북 농촌형 엣지 돌봄 대시보드" />
+  <meta property="og:description" content="비착용 · 오프라인 추론 · 다인 커버리지 | Jetson 엣지 단말에서 실시간 감지 → 복지사·가족 알림" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="hero.png" />
+  <meta name="theme-color" content="#111827" />
+
   <style>
-    :root { --bg:#0b1220; --card:#121a2b; --fg:#e7eefc; --muted:#9db2d7; --accent:#6ea8ff; }
-    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,var(--bg),#0e1628);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
-    .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 40px}
-    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;align-items:center}
-    .badge{display:inline-block;padding:.35rem .6rem;border:1px solid #1e2b45;border-radius:999px;background:#0f1a2f;color:var(--muted);font-size:.82rem}
-    h1{font-size:clamp(28px,3.4vw,40px);margin:.4rem 0 0}
-    p.lead{color:var(--muted);margin:.6rem 0 1rem}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px}
-    .chip{background:#0f1a2f;border:1px solid #1e2b45;color:#c9d7f3;border-radius:10px;padding:.45rem .65rem;font-size:.85rem}
-    .card{background:var(--card);border:1px solid #1e2b45;border-radius:14px;padding:14px}
-    .cta{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#091427;text-decoration:none;padding:.62rem .9rem;border-radius:10px;font-weight:700}
-    .ghost{margin-left:10px;color:#cfe1ff;text-decoration:none}
-    .frame{margin-top:18px}
-    .frame iframe{width:100%;height:78vh;border:0;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-    @media (max-width:900px){ .hero{grid-template-columns:1fr} .frame iframe{height:78vh} }
+    :root { --bg:#0b1220; --card:#111827; --ink:#e5e7eb; --muted:#9ca3af; --brand:#6366f1; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b1220 0%,#111827 100%);color:var(--ink);font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Apple SD Gothic Neo,"Malgun Gothic","Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 20px}
+    .hero{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:20px}
+    .chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px}
+    .title{font-size:32px;font-weight:800;margin:8px 0 4px}
+    .sub{color:var(--muted);font-size:14px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600}
+    .btn.primary{background:var(--brand);color:#fff}
+    .btn.ghost{border:1px solid rgba(255,255,255,.14);color:var(--ink)}
+    .frameShell{border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;background:#0f1628}
+    /* 화면 높이에 맞춰 iframe 키우기 */
+    .frameShell{height: calc(100vh - 220px);}
+    iframe{width:100%;height:100%;border:0;display:block;background:#0f1628}
+    .hint{color:var(--muted);font-size:12px;margin-top:8px}
+    @media (max-width:640px){
+      .title{font-size:26px}
+      .frameShell{height: calc(100vh - 250px);}
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="hero">
       <div>
-        <span class="badge">비착용 · 오프라인 추론 · 다인 커버리지</span>
-        <h1>RuralVitals — 충북 농촌형 엣지 돌봄</h1>
-        <p class="lead">카메라·PPG·마이크 → Jetson 엣지 단말에서 실시간 분석 → 위험 즉시 알림(BLE/문자)</p>
-        <div class="chips">
-          <span class="chip">시·군 필터</span><span class="chip">대상자 카드</span><span class="chip">이벤트 타임라인</span>
-          <span class="chip">현장 임계치 설정</span><span class="chip">오프라인 버퍼링</span>
+        <div class="chip">비착용 · 오프라인 추론 · 저비용 다인 커버리지</div>
+        <div class="title">RuralVitals — 충북 농촌형 엣지 돌봄 대시보드</div>
+        <div class="sub">카메라·PPG·마이크 → Jetson 엣지 단말 실시간 분석 → 위험 즉시 알림(BLE/문자)</div>
+        <div class="btns">
+          <a class="btn primary" href="https://ruralvitals-ai.streamlit.app/" target="_blank" rel="noopener">새 창에서 열기</a>
+          <a class="btn ghost" href="https://github.com/5seoyoung/ruralvitals-ai" target="_blank" rel="noopener">GitHub 소스</a>
         </div>
-        <div>
-          <a class="cta" href="https://ruralvitals-ai.streamlit.app/" target="_blank" rel="noopener">새 창에서 열기</a>
-          <a class="ghost" href="https://github.com/ohseoyoung/ruralvitals-ai" target="_blank" rel="noopener">GitHub 소스</a>
-        </div>
-      </div>
-      <div class="card">
-        <strong>Edge AI</strong><br/>CNN/LSTM + 규칙 하이브리드 · 저지연 알림 · 개인 기준선 학습 · 로컬 DB 재전송
       </div>
     </div>
 
-    <div class="frame">
-      <!-- 핵심: embed=true -->
+    <!-- 여기서 바로 Streamlit 앱을 임베드합니다 -->
+    <div class="frameShell">
       <iframe
+        id="rv-embed"
+        title="RuralVitals Streamlit App"
         src="https://ruralvitals-ai.streamlit.app/?embed=true"
-        title="RuralVitals Dashboard"
-        allow="clipboard-read; clipboard-write"
-        allowfullscreen
-        loading="eager">
+        allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade">
       </iframe>
-      <noscript>
-        자바스크립트를 활성화하거나 <a href="https://ruralvitals-ai.streamlit.app/" target="_blank" rel="noopener">여기</a>를 눌러 새 창에서 보세요.
-      </noscript>
     </div>
+    <div class="hint">임베드 모드( <code>?embed=true</code> )로 상단 Streamlit 바를 숨기고, 부모 페이지에서 바로 보여줍니다.</div>
   </div>
+
+  <!-- (선택) iOS 등에서 키보드 열릴 때 높이 재계산이 필요한 경우 -->
+  <script>
+    // 간단한 리사이즈 보정 (필수는 아님)
+    const shell = document.querySelector('.frameShell');
+    const fix = () => { shell.style.height = `calc(100vh - 220px)`; };
+    window.addEventListener('resize', fix);
+    window.addEventListener('orientationchange', fix);
+  </script>
 </body>
 </html>
