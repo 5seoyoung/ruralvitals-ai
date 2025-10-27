@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>RuralVitals AI – Demo Hub</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin:0; padding:2rem; line-height:1.6;}
+    .wrap {max-width: 860px; margin: 0 auto;}
+    .btn {display:inline-block; padding:12px 18px; margin:8px 8px 0 0; border:1px solid #222; border-radius:8px; text-decoration:none; color:#111;}
+    h1{margin:0 0 4px;} p{margin:6px 0;}
+    .card{border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:18px 0;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>RuralVitals AI</h1>
+    <p>비착용형 · 오프라인-first Edge AI로 농촌 고령자의 이상 징후를 실시간 탐지·알림합니다.</p>
+
+    <div class="card">
+      <strong>바로가기</strong><br>
+      <a class="btn" href="https://huggingface.co/spaces/<org>/ruralvitals-ai" target="_blank">🚀 데모(Primary)</a>
+      <a class="btn" href="https://ruralvitals.streamlit.app" target="_blank">🧷 백업 데모</a>
+      <a class="btn" href="https://github.com/<org>/<repo>" target="_blank">📦 GitHub Repo</a>
+      <a class="btn" href="./demo.mp4" target="_blank">🎥 시연 영상</a>
+      <a class="btn" href="./privacy.html" target="_blank">🔐 개인정보 안내</a>
+    </div>
+
+    <div class="card">
+      <strong>로컬 실행 요약</strong>
+      <pre><code>pip install -r requirements.txt
+streamlit run app/app.py
+
+pip install -r requirements-edge.txt
+python edge_agent/main.py
+</code></pre>
+    </div>
+  </div>
+</body>
+</html>

@@ -4,4 +4,4 @@ scipy
 pandas
 pyyaml
 onnxruntime
-bleak
+bleak # BLE (Linux/Jetson)

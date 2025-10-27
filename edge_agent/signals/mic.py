@@ -1,18 +1,11 @@
-import numpy as np, wave, math
+# edge_agent/signals/mic.py
+import time, math
+
 class MicSource:
     def __init__(self, path: str):
-        self.wf = wave.open(path, "rb")
-        self.rate = self.wf.getframerate()
-        self.nch = self.wf.getnchannels()
-        self.chunk = int(self.rate * 1.0)  # 1s
+        self.t0 = time.time()
+
     def read_brpm(self) -> float:
-        data = self.wf.readframes(self.chunk)
-        if len(data)==0: self.wf.rewind(); data = self.wf.readframes(self.chunk)
-        x = np.frombuffer(data, dtype=np.int16).astype(np.float32)
-        if self.nch==2: x = x[::2]
-        x = x / (np.max(np.abs(x))+1e-6)
-        ac = np.correlate(x, x, mode="full")[len(x)-1:]
-        low, high = int(self.rate/6.0), int(self.rate/0.3)
-        seg = ac[low:high]; peak = int(np.argmax(seg))+low
-        period = max(peak,1); brpm = 60.0 / (period/self.rate)
-        return float(np.clip(brpm, 6, 40))
+        # 데모용: 12~16 rpm 사이 완만 변동 (실장비 없이 안정적 데모)
+        t = time.time() - self.t0
+        return 14.0 + 2.0*math.sin(t / 10.0)
